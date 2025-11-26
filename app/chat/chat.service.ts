@@ -1,24 +1,20 @@
-import Message from "./chat.model";
+import { ChatMessage } from "./chat.model";  // Mongoose model for messages
 
-interface SendMessageInput {
-  senderId: string;
-  receiverId: string;
-  text: string;
-}
-
-class ChatService {
-  async getMessages(senderId: string, receiverId: string) {
-    return Message.find({
+export class ChatService {
+  async getMessages(userId: string, receiverId: string) {
+    return ChatMessage.find({
       $or: [
-        { senderId, receiverId },
-        { senderId: receiverId, receiverId: senderId },
-      ],
+        { senderId: userId, receiverId },
+        { senderId: receiverId, receiverId: userId }
+      ]
     }).sort({ createdAt: 1 });
   }
 
-  async sendMessage({ senderId, receiverId, text }: SendMessageInput) {
-    return Message.create({ senderId, receiverId, text });
+  async sendMessage(userId: string, receiverId: string, text: string) {
+    return ChatMessage.create({
+      senderId: userId,
+      receiverId,
+      text
+    });
   }
 }
-
-export default new ChatService();

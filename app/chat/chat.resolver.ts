@@ -1,53 +1,29 @@
-import { createPubSub } from "graphql-yoga";
-import ChatService from "./chat.service";
+import { ChatService } from "./chat.service";
+import { PubSub } from "graphql-subscriptions";
 
-const pubSub = createPubSub<{
-  NEW_MESSAGE: [
-    {
-      senderId: string;
-      receiverId: string;
-      text: string;
-      createdAt: Date;
-    }
-  ];
-}>();
+const service = new ChatService();
+const pubsub = new PubSub();
+const NEW_MESSAGE = "NEW_MESSAGE";
 
-
-interface SendMessageArgs {
-  senderId: string;
-  receiverId: string;
-  text: string;
-}
-
-interface SubscriptionArgs {
-  receiverId: string;
-}
-
-interface MessageArgs {
-  senderId: string;
-  receiverId: string;
-}
-
-export const ChatResolver = {
+export const chatResolvers = {
   Query: {
-    messages: async (_: unknown, { senderId, receiverId }: MessageArgs) => {
-      return ChatService.getMessages(senderId, receiverId);
+    getMessages: async (_: any, { receiverId }: { receiverId: string }, { userId }: { userId: string }) => {
+      if (!userId) throw new Error("Unauthorized");
+      return service.getMessages(userId, receiverId);
     },
   },
 
   Mutation: {
-    sendMessage: async (_: unknown, args: SendMessageArgs) => {
-      const msg = await ChatService.sendMessage(args);
+    sendMessage: async (_: any, { receiverId, text }: { receiverId: string; text: string }, { userId }: { userId: string }) => {
+      if (!userId) throw new Error("Unauthorized");
 
-      const message = {
-        senderId: msg.senderId!,
-        receiverId: msg.receiverId!,
-        text: msg.text!,
-        createdAt: new Date(msg.createdAt!), // convert NativeDate -> JS Date
-      };
+      const message = await service.sendMessage(userId, receiverId, text);
 
-      // ✅ Publish single object
-      await pubSub.publish("NEW_MESSAGE", message);
+      // Publish to receiver's channel
+      pubsub.publish(NEW_MESSAGE, {
+        newMessage: message,
+        receiverId,   // use for filtering
+      });
 
       return message;
     },
@@ -55,16 +31,15 @@ export const ChatResolver = {
 
   Subscription: {
     newMessage: {
-      subscribe: () => pubSub.subscribe("NEW_MESSAGE"),
-      resolve: (
-        payload: { senderId: string; receiverId: string; text: string; createdAt: Date },
-        args: SubscriptionArgs
-      ) => {
-        if (payload.receiverId !== args.receiverId) return null;
-        return payload;
+      subscribe: (_: any, { receiverId }: { receiverId: string }) =>
+        pubsub.asyncIterator(NEW_MESSAGE),
+      resolve: (payload: any, args: { receiverId: string }) => {
+        // Only send to intended receiver
+        if (payload.receiverId === args.receiverId) {
+          return payload.newMessage;
+        }
+        return null;
       },
     },
   },
 };
-
-export default ChatResolver;

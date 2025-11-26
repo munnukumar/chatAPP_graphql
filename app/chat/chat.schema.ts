@@ -1,23 +1,23 @@
-const chatSchema = /* GraphQL */ `
+import { gql } from "apollo-server-express";
+
+export const chatTypeDefs = gql`
   type Message {
     id: ID!
-    senderId: ID!
-    receiverId: ID!
+    senderId: String!
+    receiverId: String!
     text: String!
     createdAt: String!
   }
 
-  type Query {
-    messages(senderId: ID!, receiverId: ID!): [Message]
+  extend type Query {
+    getMessages(receiverId: String!): [Message]
   }
 
-  type Mutation {
-    sendMessage(senderId: ID!, receiverId: ID!, text: String!): Message!
+  extend type Mutation {
+    sendMessage(receiverId: String!, text: String!): Message
   }
 
-  type Subscription {
-    newMessage(receiverId: ID!): Message!
+  extend type Subscription {
+    newMessage(receiverId: String!): Message
   }
 `;
-
-export default chatSchema;

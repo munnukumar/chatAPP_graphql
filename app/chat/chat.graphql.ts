@@ -8,13 +8,12 @@ const typeDefs = /* GraphQL */ `
   }
 
   input SendMessageInput {
-    senderId: ID!
     receiverId: ID!
     text: String!
   }
 
   type Query {
-    messages(senderId: ID!, receiverId: ID!): [Message!]!
+    getMessages(receiverId: ID!): [Message!]!
   }
 
   type Mutation {
